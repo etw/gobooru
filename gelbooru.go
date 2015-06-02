@@ -1,4 +1,4 @@
-package gelbooru
+package gobooru
 
 import (
 	"encoding/xml"
@@ -10,20 +10,15 @@ import (
 	"time"
 )
 
-const apiPrefix = "http://gelbooru.com/index.php?page=dapi&s=post&q=index&id="
+const GbFmt = "http://gelbooru.com/index.php?page=dapi&s=post&q=index&id=%"
 
-type API struct {
-	httpClient *http.Client
-	auth       *string
-}
-
-type Posts struct {
+type GbPosts struct {
 	Count  int `xml:"count,attr"`
 	Offset int `xml:"offset,attr"`
-	List   []Post
+	List   []GbPost
 }
 
-type Post struct {
+type GbPost struct {
 	Height        int       `xml:"height,attr"`
 	Width         int       `xml:"width,attr"`
 	ParentId      int       `xml:"parent_id,attr"`
@@ -49,16 +44,10 @@ type Post struct {
 	HasChildren   bool      `xml:"has_children,attr"`
 }
 
-func New(c *http.Client) *API {
-	api := new(API)
-	api.httpClient = c
-	return api
-}
+func (api *API) GetPicsGb(id *string) (*GbPosts, error) {
+	var p GbPosts
 
-func (api *API) GetPics(id *string) (*Posts, error) {
-	var p Posts
-
-	req, err := http.NewRequest("GET", fmt.Sprint(apiPrefix, *id), nil)
+	req, err := http.NewRequest("GET", fmt.Sprintf(api.format, *id), nil)
 	if err != nil {
 		return nil, err
 	}
