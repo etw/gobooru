@@ -1,17 +1,38 @@
 package gobooru
 
 import (
-	"net/http"
+	"net/url"
 )
 
-type API struct {
-	httpClient *http.Client
-	format     string
+type Post struct {
+	Height   int
+	Width    int
+	Url      url.URL
+	Sample   url.URL
+	Preview  url.URL
+	Rating   string
+	Id       int
+	Tags     []string
+	Comments []Comment
 }
 
-func New(c *http.Client, f string) *API {
-	api := new(API)
-	api.httpClient = c
-	api.format = f
-	return api
+type Comment struct {
+	Id     int
+	PostId int
+	Body   string
+}
+
+type cursor struct {
+	page int
+	pos  int
+}
+
+type Booru interface {
+	GetById(int) (*Post, error)
+
+	GetByTags([]string, int, int) ([]Post, error)
+	CurByTags([]string) (func(int) ([]Post, error), error)
+
+	GetComm(int) ([]Comment, error)
+	CurComm(int) (func(int) ([]Comment, error), error)
 }
