@@ -7,15 +7,21 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
 )
 
-const GbFmt = "http://gelbooru.com/index.php?page=dapi&s=post&q=index&id=%"
+const GELBOORU = "http://gelbooru.com/index.php?page=dapi&q=index"
+
+type GbAPI struct {
+	httpClient *http.Client
+	prefix     string
+}
 
 type GbPosts struct {
-	Count  int `xml:"count,attr"`
-	Offset int `xml:"offset,attr"`
-	List   []GbPost
+	Count  int      `xml:"count,attr"`
+	Offset int      `xml:"offset,attr"`
+	List   []GbPost `xml:"post"`
 }
 
 type GbPost struct {
@@ -44,32 +50,87 @@ type GbPost struct {
 	HasChildren   bool      `xml:"has_children,attr"`
 }
 
-func (api *API) GetPicsGb(id *string) (*GbPosts, error) {
+type GbComments struct {
+	Type string      `xml:"type,attr"`
+	List []GbComment `xml:"comment"`
+}
+
+type GbComment struct {
+	CreatedAt time.Time `xml:"created_at,attr"`
+	PostId    int       `xml:"post_id,attr"`
+	Body      string    `xml:"body,attr"`
+	Creator   string    `xml:"creator,attr"`
+	Id        int       `xml:"id,attr"`
+	CreatorId int       `xml:"creator_id,attr"`
+}
+
+func NewGb(c *http.Client, p string) *GbAPI {
+	api := new(GbAPI)
+	api.httpClient = c
+	api.prefix = p
+	return api
+}
+
+func (api *GbAPI) metaGet(u *string) ([]byte, error) {
+	if req, err := http.NewRequest("GET", *u, nil); err != nil {
+		return nil, err
+	} else {
+		if resp, err := api.httpClient.Do(req); err != nil {
+			return nil, err
+		} else {
+			defer resp.Body.Close()
+
+			if resp.StatusCode != http.StatusOK {
+				return nil, errors.New(resp.Status)
+			}
+
+			if body, err := ioutil.ReadAll(resp.Body); err != nil {
+				return nil, err
+			} else {
+				return body, nil
+			}
+		}
+	}
+}
+
+func (api *GbAPI) GetByIdRaw(id int) (*GbPosts, error) {
 	var p GbPosts
 
-	req, err := http.NewRequest("GET", fmt.Sprintf(api.format, *id), nil)
-	if err != nil {
+	path := fmt.Sprintf("%s&s=post&id=%d", api.prefix, id)
+	if data, err := api.metaGet(&path); err != nil {
 		return nil, err
+	} else {
+		if xml.Unmarshal(data, &p) != nil {
+			return nil, err
+		}
 	}
-	resp, err := api.httpClient.Do(req)
-	if err != nil {
+	return &p, nil
+}
+
+func (api *GbAPI) GetByTagsRaw(t []string, n int) (*GbPosts, error) {
+	var p GbPosts
+
+	path := fmt.Sprintf("%s&s=post&tags=%s", api.prefix, strings.Join(t, " "))
+	if data, err := api.metaGet(&path); err != nil {
 		return nil, err
+	} else {
+		if xml.Unmarshal(data, &p) != nil {
+			return nil, err
+		}
 	}
-	defer resp.Body.Close()
+	return &p, nil
+}
 
-	if resp.StatusCode != http.StatusOK {
-		return nil, errors.New(resp.Status)
-	}
+func (api *GbAPI) GetCommRaw(id int) (*GbComments, error) {
+	var p GbComments
 
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
+	path := fmt.Sprintf("%s&s=comment&post_id=%d", api.prefix, id)
+	if data, err := api.metaGet(&path); err != nil {
 		return nil, err
+	} else {
+		if xml.Unmarshal(data, &p) != nil {
+			return nil, err
+		}
 	}
-
-	err = xml.Unmarshal(body, &p)
-	if err != nil {
-		return nil, err
-	}
-
 	return &p, nil
 }
