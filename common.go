@@ -1,18 +1,14 @@
 package gobooru
 
-import (
-	"net/url"
-)
-
 type Post struct {
 	Height   int
 	Width    int
-	Url      url.URL
-	Sample   url.URL
-	Preview  url.URL
+	Url      string
+	Sample   string
+	Preview  string
 	Rating   string
 	Id       int
-	Tags     []string
+	Tags     string
 	Comments []Comment
 }
 
