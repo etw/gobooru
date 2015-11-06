@@ -12,9 +12,15 @@ import (
 
 const GELBOORU = "http://gelbooru.com/index.php?page=dapi&q=index"
 
+type GbAuth struct {
+	User      string
+	Hash      string
+}
+
 type GbAPI struct {
 	httpClient *http.Client
 	prefix     string
+	auth       []http.Cookie
 }
 
 type GbPosts struct {
@@ -65,10 +71,20 @@ type GbComment struct {
 	CreatorId int       `xml:"creator_id,attr"`
 }
 
-func NewGb(c *http.Client, p string) *GbAPI {
+func NewGb(c *http.Client, p string, a *GbAuth) *GbAPI {
 	api := new(GbAPI)
 	api.httpClient = c
 	api.prefix = p
+	if a != nil {
+		api.auth = append(api.auth, http.Cookie{
+			Name: "user_id",
+			Value: a.User,
+		})
+		api.auth = append(api.auth, http.Cookie{
+			Name: "pass_hash",
+			Value: a.Hash,
+		})
+	}
 	return api
 }
 
@@ -76,6 +92,9 @@ func (api *GbAPI) metaGet(u *string) ([]byte, error) {
 	if req, err := http.NewRequest("GET", *u, nil); err != nil {
 		return nil, err
 	} else {
+		for _, c := range api.auth {
+			req.AddCookie(&c)
+		}
 		if resp, err := api.httpClient.Do(req); err != nil {
 			return nil, err
 		} else {
